@@ -25,10 +25,10 @@ fn main() {
     let b = arr2(&[
         [6, 1, 2, 3, 8, 1],
         [4, 5, 6, 5, 2, 9],
-        [1, 9, 8, -8, -3, 0],
-        [4, 0, -8, 5, 3, 1],
-        [4, 0, -8, 5, 3, 1],
-        [4, 0, -8, 5, 3, 1],
+        [1, 9, 8, 8, 3, 0],
+        [1, 1, 1, 1, 1, 1],
+        [3, 2, 0, 6, 0, 1],
+        [9, 1, 4, 1, 0, 1],
     ]);
     let a_slices = split(&a, p_sqrt);
     let b_slices = split(&b, p_sqrt);
@@ -46,9 +46,9 @@ fn main() {
     } else {
         left = rank - 1;
     }
-    if (rank -p_sqrt + 1) % p_sqrt == 0{
+    if (rank - p_sqrt + 1) % p_sqrt == 0 {
         right = rank - p_sqrt + 1;
-    }else{
+    } else {
         right = rank + 1;
     }
 
@@ -57,33 +57,47 @@ fn main() {
     } else {
         up = rank - p_sqrt;
     }
-    if rank + p_sqrt > world.size() {
+    if rank + p_sqrt >= world.size() {
         down = -world.size() + p_sqrt + rank;
     } else {
         down = rank + p_sqrt;
     }
-
+    let item_a = a_slices[rank as usize];
+    let item_b = b_slices[rank as usize];
     // let mut result_c = Array::zeros((1, 1));
     for i in 0..p_sqrt {
-        //Calculate by product
+        //Calculate byproduct
 
         //send A left
         println!("Rank {:} sending A to rank {:}", rank, left);
-        // world.process_at_rank(left as i32).send(item.to_owned().as_slice().unwrap());
+        world.process_at_rank(left as i32).send(item_a.to_owned().as_slice().unwrap());
 
         //send B up
         println!("Rank {:} sending B to rank {:}", rank, up);
-        // world.process_at_rank(up as i32).send(item.to_owned().as_slice().unwrap());
+        world.process_at_rank(up as i32).send(item_b.to_owned().as_slice().unwrap());
+
+
         //Receive A values
         println!("Rank {:} receiving A from rank {:}", rank, right);
-        // let (mut msg, _status) = world.process_at_rank(right).receive_vec::<i32>();
+        let (mut msg_a, _) = world.process_at_rank(right).receive_vec::<i32>();
+        println!("{:?}", msg_a);
+
         //Receive B values
         println!("Rank {:} receiving B from rank {:}", rank, down);
-        // let (mut msg, _status) = world.process_at_rank(down).receive_vec::<i32>();
+        let (mut msg_b, _) = world.process_at_rank(down).receive_vec::<i32>();
+        println!("{:?}", msg_b);
+
         //Reconstruct ndarrays
-        // let new_arr = Array2::from_shape_vec(
-        //     (dim.0 / p_sqrt, dim.1 / p_sqrt), // as usize
-        //     msg.to_vec()).unwrap();
+        let new_a = Array2::from_shape_vec(
+            (a_slices[0].dim().0 as usize,
+             a_slices[0].dim().1 as usize),
+            msg_a.to_vec()).unwrap();
+
+        let new_b = Array2::from_shape_vec(
+            (b_slices[0].dim().0 as usize,
+             b_slices[0].dim().1 as usize),
+            msg_b.to_vec()).unwrap();
+
     }
 
     // println!("Rank {} got slice of a: {:?}", world.rank(), a_slices[world.rank() as usize]);

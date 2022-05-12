@@ -2,7 +2,7 @@
 #![allow(unused)]
 extern crate mpi;
 
-use ndarray::{arr2, Array, Array2, ArrayView, Dim, s};
+use ndarray::{arr2, s, Array, Array2, ArrayView, Dim};
 
 use mpi::traits::*;
 
@@ -30,33 +30,61 @@ fn main() {
         [4, 0, -8, 5, 3, 1],
         [4, 0, -8, 5, 3, 1],
     ]);
-
     let a_slices = split(&a, p_sqrt);
     let b_slices = split(&b, p_sqrt);
 
-    // if rank == 0{
-    //     println!("{:?}", a_slices);
-    // }
+    /// calculates next up and left ranks, based on knowledge,
+    /// that processors are arranged in NxN mesh.
+    let rank = world.rank();
+    let mut left = 0;
+    let mut up = 0;
+    let mut right = 0;
+    let mut down = 0;
 
-    for i in 0..p_sqrt {
-        let rank = world.rank();
-        let mut left = 0;
-        let mut up = 0;
-        if rank % p_sqrt == 0 {
-            left = rank + p_sqrt - 1;
-        } else {
-            left = rank - 1;
-        }
-        if rank - p_sqrt < 0 {
-            up = world.size() - p_sqrt + rank;
-        } else {
-            up = rank - p_sqrt;
-        }
-
-        println!("Rank {:} sending A to rank {:}", rank, left);
-        println!("Rank {:} sending B to rank {:}", rank, up);
+    if rank % p_sqrt == 0 {
+        left = rank + p_sqrt - 1;
+    } else {
+        left = rank - 1;
+    }
+    if (rank -p_sqrt + 1) % p_sqrt == 0{
+        right = rank - p_sqrt + 1;
+    }else{
+        right = rank + 1;
     }
 
+    if rank - p_sqrt < 0 {
+        up = world.size() - p_sqrt + rank;
+    } else {
+        up = rank - p_sqrt;
+    }
+    if rank + p_sqrt > world.size() {
+        down = -world.size() + p_sqrt + rank;
+    } else {
+        down = rank + p_sqrt;
+    }
+
+    // let mut result_c = Array::zeros((1, 1));
+    for i in 0..p_sqrt {
+        //Calculate by product
+
+        //send A left
+        println!("Rank {:} sending A to rank {:}", rank, left);
+        // world.process_at_rank(left as i32).send(item.to_owned().as_slice().unwrap());
+
+        //send B up
+        println!("Rank {:} sending B to rank {:}", rank, up);
+        // world.process_at_rank(up as i32).send(item.to_owned().as_slice().unwrap());
+        //Receive A values
+        println!("Rank {:} receiving A from rank {:}", rank, right);
+        // let (mut msg, _status) = world.process_at_rank(right).receive_vec::<i32>();
+        //Receive B values
+        println!("Rank {:} receiving B from rank {:}", rank, down);
+        // let (mut msg, _status) = world.process_at_rank(down).receive_vec::<i32>();
+        //Reconstruct ndarrays
+        // let new_arr = Array2::from_shape_vec(
+        //     (dim.0 / p_sqrt, dim.1 / p_sqrt), // as usize
+        //     msg.to_vec()).unwrap();
+    }
 
     // println!("Rank {} got slice of a: {:?}", world.rank(), a_slices[world.rank() as usize]);
 
@@ -96,9 +124,10 @@ fn split(matrix: &Array2<i32>, parts: i32) -> Vec<ArrayView<i32, Dim<[usize; 2]>
 
     for i in 0..parts {
         for j in 0..parts {
-            sliced.push(matrix.slice(
-                s![i*(dim_x/parts)..i*(dim_x/parts)+(dim_x/parts),
-                    j*(dim_y/parts)..j*(dim_y/parts)+(dim_y/parts)]));
+            sliced.push(matrix.slice(s![
+                i * (dim_x / parts)..i * (dim_x / parts) + (dim_x / parts),
+                j * (dim_y / parts)..j * (dim_y / parts) + (dim_y / parts)
+            ]));
         }
     }
     sliced

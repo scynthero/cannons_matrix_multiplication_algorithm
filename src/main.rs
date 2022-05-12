@@ -17,9 +17,9 @@ fn main() {
         [2, 1, 5, 3, 4, 7],
         [0, 7, 1, 6, 8, 3],
         [9, 2, 4, 4, 1, 1],
-        [3, 6, 7, 2, 2, 5],
-        [3, 6, 7, 2, 2, 5],
-        [3, 6, 7, 2, 2, 5],
+        [1, 2, 3, 4, 5, 6],
+        [0, 9, 8, 7, 6, 5],
+        [6, 5, 4, 0, 9, 8],
     ]);
 
     let b = arr2(&[
@@ -62,9 +62,17 @@ fn main() {
     } else {
         down = rank + p_sqrt;
     }
+    if rank == 0 {
+        println!("{:?}", a_slices);
+    }
+
+    let a_slices = skew(a_slices);
+    if rank == 0 {
+        println!("{:?}", a_slices);
+    }
+    let b_slices = skew(b_slices);
     let item_a = a_slices[rank as usize];
     let item_b = b_slices[rank as usize];
-    //
     let mut result_c: ArrayBase<OwnedRepr<i32>, _> =
         Array2::zeros(
             (a_slices[0].dim().0,
@@ -73,23 +81,23 @@ fn main() {
         //Calculate byproduct
         result_c = result_c + item_a.dot(&item_b);
         //send A left
-        println!("Rank {:} sending A to rank {:}", rank, left);
+        // println!("Rank {:} sending A to rank {:}", rank, left);
         world.process_at_rank(left as i32).send(item_a.to_owned().as_slice().unwrap());
 
         //send B up
-        println!("Rank {:} sending B to rank {:}", rank, up);
+        // println!("Rank {:} sending B to rank {:}", rank, up);
         world.process_at_rank(up as i32).send(item_b.to_owned().as_slice().unwrap());
 
 
         //Receive A from right
-        println!("Rank {:} receiving A from rank {:}", rank, right);
+        // println!("Rank {:} receiving A from rank {:}", rank, right);
         let (mut msg_a, _) = world.process_at_rank(right).receive_vec::<i32>();
-        println!("{:?}", msg_a);
+        // println!("{:?}", msg_a);
 
         //Receive B from bottom
-        println!("Rank {:} receiving B from rank {:}", rank, down);
+        // println!("Rank {:} receiving B from rank {:}", rank, down);
         let (mut msg_b, _) = world.process_at_rank(down).receive_vec::<i32>();
-        println!("{:?}", msg_b);
+        // println!("{:?}", msg_b);
 
         //Reconstruct ndarrays
         let new_a = Array2::from_shape_vec(
@@ -104,7 +112,7 @@ fn main() {
 
         let item_a = new_a;
         let item_b = new_b;
-        println!("{:} {:}", item_a, item_b);
+        // println!("{:} {:}", item_a, item_b);
     }
     world.barrier();
     println!("Rank {} calculated {:}", rank, result_c);
@@ -120,18 +128,28 @@ fn main() {
     // assert_eq!(c, calculated_c)
 }
 
-fn split(matrix: &Array2<i32>, parts: i32) -> Vec<ArrayView<i32, Dim<[usize; 2]>>> {
+fn split(matrix: &Array2<i32>, parts: i32) -> Vec<Vec<ArrayView<i32, Dim<[usize; 2]>>>> {
     let dim_x = matrix.dim().0 as i32;
     let dim_y = matrix.dim().1 as i32;
     let mut sliced = vec![];
 
     for i in 0..parts {
+        let mut row = vec![];
         for j in 0..parts {
-            sliced.push(matrix.slice(s![
+            row.push(matrix.slice(s![
                 i * (dim_x / parts)..i * (dim_x / parts) + (dim_x / parts),
                 j * (dim_y / parts)..j * (dim_y / parts) + (dim_y / parts)
             ]));
         }
+        sliced.push(row);
     }
     sliced
+}
+
+fn skew(mut matrix: Vec<Vec<ArrayView<i32, Dim<[usize; 2]>>>>) -> Vec<ArrayView<i32, Dim<[usize; 2]>>> {
+    matrix.iter_mut().enumerate().for_each(|(idx, item)| {
+        // println!("Idx is {:}",idx);
+        item.rotate_left(idx);
+    });
+    matrix.into_iter().flatten().collect()
 }

@@ -69,7 +69,6 @@ fn main() {
     let mut new_b;
     let mut item_a = a_slices[rank as usize].to_owned().as_slice().unwrap().to_owned();
     let mut item_b = b_slices[rank as usize].to_owned().as_slice().unwrap().to_owned();
-    ;
     let mut result_c: ArrayBase<OwnedRepr<i32>, _> =
         Array2::zeros(
             (a_slices[0].dim().0,

@@ -2,6 +2,7 @@
 #![allow(unused)]
 extern crate mpi;
 
+use std::time::Instant;
 use ndarray::{arr2, s, Array, Array2, ArrayView, Dim, ArrayBase, OwnedRepr};
 
 use mpi::traits::*;
@@ -62,7 +63,7 @@ fn main() {
     } else {
         down = rank + p_sqrt;
     }
-
+    let now = Instant::now();
     let a_slices = skew_a(a_slices);
     let b_slices = skew_b(b_slices);
     let mut new_a;
@@ -110,12 +111,16 @@ fn main() {
         item_b = msg_b;
     }
     world.barrier();
-    println!("Rank {} calculated {:}", rank, result_c);
+    if rank == 0 {
+        let elapsed_time = now.elapsed();
+        println!("Calculation time {:?}", elapsed_time);
+    }
+    // println!("Rank {} calculated {:}", rank, result_c);
 
     world.barrier();
     if rank == 0 {
         let calculated_c = a.dot(&b);
-        println!("Calculated C is: {}", calculated_c);
+        // println!("Calculated C is: {}", calculated_c);
     }
 }
 
